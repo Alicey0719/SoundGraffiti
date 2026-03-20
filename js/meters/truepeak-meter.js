@@ -77,13 +77,17 @@ class TruePeakMeter {
             this.peakHoldTimerRight = Date.now();
         }
         
-        // ピークホールドのタイムアウト
+        // ピークホールドのタイムアウト（現在値を追従）
         const now = Date.now();
         if (now - this.peakHoldTimerLeft > this.peakHoldTime) {
-            this.peakHoldLeft = this.peakLeft;
+            if (dbTPLeft < this.peakHoldLeft) {
+                this.peakHoldLeft = dbTPLeft;
+            }
         }
         if (now - this.peakHoldTimerRight > this.peakHoldTime) {
-            this.peakHoldRight = this.peakRight;
+            if (dbTPRight < this.peakHoldRight) {
+                this.peakHoldRight = dbTPRight;
+            }
         }
         
         this.lastUpdateTime = now;
