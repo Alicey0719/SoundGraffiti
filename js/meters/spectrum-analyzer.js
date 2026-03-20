@@ -20,7 +20,7 @@ class SpectrumAnalyzer {
         this.minFreq = 20;
         this.maxFreq = 20000;
         this.minDB = -80;
-        this.maxDB = 0;
+        this.maxDB = 6;  // 0 → 6dBに変更（クリッピング付近も表示）
         
         this.init();
         this.startAnimation();
@@ -146,7 +146,7 @@ class SpectrumAnalyzer {
         }
         
         // dB軸
-        const dbMarks = [-80, -60, -40, -20, 0];
+        const dbMarks = [-60, -40, -20, 0, 6];
         
         for (const db of dbMarks) {
             const y = ((this.maxDB - db) / (this.maxDB - this.minDB)) * height;
