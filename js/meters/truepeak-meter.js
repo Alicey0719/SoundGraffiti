@@ -60,6 +60,10 @@ class TruePeakMeter {
         const dbTPLeft = truePeakLeft > 0 ? 20 * Math.log10(truePeakLeft) : -Infinity;
         const dbTPRight = truePeakRight > 0 ? 20 * Math.log10(truePeakRight) : -Infinity;
         
+        // 現在レベル（True Peak値をバーで表示）
+        this.currentLevelLeft = dbTPLeft;
+        this.currentLevelRight = dbTPRight;
+        
         // ピーク更新
         if (dbTPLeft > this.peakLeft) {
             this.peakLeft = dbTPLeft;
@@ -72,10 +76,6 @@ class TruePeakMeter {
             this.peakHoldRight = dbTPRight;
             this.peakHoldTimerRight = Date.now();
         }
-        
-        // 現在レベル（RMS的な表示用）
-        this.currentLevelLeft = this.calculateRMSdB(leftChannel);
-        this.currentLevelRight = this.calculateRMSdB(rightChannel);
         
         // ピークホールドのタイムアウト
         const now = Date.now();
