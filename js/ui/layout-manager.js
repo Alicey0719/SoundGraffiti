@@ -10,6 +10,7 @@ class LayoutManager {
         this.panels = {
             lufs: document.getElementById('lufs-panel'),
             truepeak: document.getElementById('truepeak-panel'),
+            rms: document.getElementById('rms-panel'),
             vu: document.getElementById('vu-panel'),
             spectrum: document.getElementById('spectrum-panel'),
             stereofield: document.getElementById('stereofield-panel'),

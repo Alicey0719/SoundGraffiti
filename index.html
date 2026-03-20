@@ -56,9 +56,10 @@
                 <label>Display:</label>
                 <label><input type="checkbox" class="meter-toggle" data-meter="lufs" checked> LUFS</label>
                 <label><input type="checkbox" class="meter-toggle" data-meter="truepeak" checked> True Peak</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="rms" checked> RMS</label>
                 <label><input type="checkbox" class="meter-toggle" data-meter="vu" checked> VU Meter</label>
-                <label><input type="checkbox" class="meter-toggle" data-meter="spectrum" checked> Spectrum</label>
                 <label><input type="checkbox" class="meter-toggle" data-meter="stereofield" checked> Stereo Field</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="spectrum" checked> Spectrum</label>
                 <label><input type="checkbox" class="meter-toggle" data-meter="history" checked> History</label>
             </div>
         </header>
@@ -112,6 +113,26 @@
                 </div>
             </div>
 
+            <!-- RMS Meter -->
+            <div class="meter-panel" id="rms-panel" data-meter="rms">
+                <div class="panel-header">
+                    <h3>RMS Level</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="rms-canvas"></canvas>
+                    <div class="meter-values">
+                        <div class="value-item">
+                            <span class="label">RMS L:</span>
+                            <span class="value" id="rms-left">-∞ dB</span>
+                        </div>
+                        <div class="value-item">
+                            <span class="label">RMS R:</span>
+                            <span class="value" id="rms-right">-∞ dB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- VU Meter -->
             <div class="meter-panel" id="vu-panel" data-meter="vu">
                 <div class="panel-header">
@@ -122,16 +143,6 @@
                 </div>
             </div>
 
-            <!-- Spectrum Analyzer -->
-            <div class="meter-panel wide" id="spectrum-panel" data-meter="spectrum">
-                <div class="panel-header">
-                    <h3>Spectrum Analyzer</h3>
-                </div>
-                <div class="panel-content">
-                    <canvas id="spectrum-canvas"></canvas>
-                </div>
-            </div>
-
             <!-- Stereo Field -->
             <div class="meter-panel" id="stereofield-panel" data-meter="stereofield">
                 <div class="panel-header">
@@ -139,6 +150,16 @@
                 </div>
                 <div class="panel-content">
                     <canvas id="stereofield-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Spectrum Analyzer -->
+            <div class="meter-panel wide" id="spectrum-panel" data-meter="spectrum">
+                <div class="panel-header">
+                    <h3>Spectrum Analyzer</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="spectrum-canvas"></canvas>
                 </div>
             </div>
 
@@ -230,6 +251,7 @@
     <!-- Scripts -->
     <script src="js/meters/lufs-meter.js"></script>
     <script src="js/meters/truepeak-meter.js"></script>
+    <script src="js/meters/rms-meter.js"></script>
     <script src="js/meters/vu-meter.js"></script>
     <script src="js/meters/spectrum-analyzer.js"></script>
     <script src="js/meters/stereo-field.js"></script>

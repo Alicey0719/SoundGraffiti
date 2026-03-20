@@ -63,6 +63,7 @@ class SoundGraffiti {
         const targetLufs = this.getTargetLufs();
         this.meters.lufs = new LUFSMeter('lufs-canvas', targetLufs);
         this.meters.truepeak = new TruePeakMeter('truepeak-canvas');
+        this.meters.rms = new RMSMeter('rms-canvas');
         this.meters.vu = new VUMeter('vu-canvas');
         this.meters.spectrum = new SpectrumAnalyzer('spectrum-canvas');
         this.meters.stereofield = new StereoField('stereofield-canvas');
@@ -349,6 +350,15 @@ class SoundGraffiti {
             document.getElementById('peak-right').textContent = 
                 peakData.right !== -Infinity ? `${peakData.right.toFixed(1)} dBTP` : '-∞ dBTP';
         }
+
+        // RMS値
+        if (this.meters.rms) {
+            const rmsData = this.meters.rms.getValues();
+            document.getElementById('rms-left').textContent = 
+                rmsData.left !== -Infinity ? `${rmsData.left.toFixed(1)} dB` : '-∞ dB';
+            document.getElementById('rms-right').textContent = 
+                rmsData.right !== -Infinity ? `${rmsData.right.toFixed(1)} dB` : '-∞ dB';
+        }
     }
     
     resetMeters() {
@@ -366,6 +376,8 @@ class SoundGraffiti {
         document.getElementById('lra-value').textContent = '0.0 LU';
         document.getElementById('peak-left').textContent = '-∞ dBTP';
         document.getElementById('peak-right').textContent = '-∞ dBTP';
+        document.getElementById('rms-left').textContent = '-∞ dB';
+        document.getElementById('rms-right').textContent = '-∞ dB';
         
         // 各メーターを明示的に再描画（Stop中でも反映されるように）
         Object.values(this.meters).forEach(meter => {
