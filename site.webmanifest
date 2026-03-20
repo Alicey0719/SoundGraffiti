@@ -1,0 +1,22 @@
+{
+    "name": "Sound Graffiti",
+    "short_name": "Sound Graffiti",
+    "description": "Web Audio Loudness Meter",
+    "icons": [
+        {
+            "src": "/assets/sg_icon.webp",
+            "sizes": "192x192",
+            "type": "image/webp"
+        },
+        {
+            "src": "/assets/sg_icon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#a5b4fc",
+    "background_color": "#f7fafc",
+    "display": "standalone",
+    "start_url": "/",
+    "scope": "/"
+}
