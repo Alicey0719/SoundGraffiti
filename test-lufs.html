@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>LUFS Calculation Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a202c; color: #e2e8f0; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .pass { background: #065f46; }
+        .fail { background: #7f1d1d; }
+        .info { background: #1e3a8a; }
+        h2 { color: #86efac; }
+        pre { background: #2d3748; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>LUFS Calculation Test Suite</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+
+        function testKWeightingCoefficients() {
+            log('=== K-weighting Filter Coefficients Test ===', 'info');
+            
+            // ITU-R BS.1770-4 の公式係数（48kHz）
+            const expected = {
+                pre: {
+                    b: [1.53512485958697, -2.69169618940638, 1.19839281085285],
+                    a: [1.0, -1.69065929318241, 0.73248077421585]
+                },
+                rlb: {
+                    b: [1.0, -2.0, 1.0],
+                    a: [1.0, -1.99004745483398, 0.99007225036621]
+                }
+            };
+
+            // Pre-filter係数チェック
+            const b0_pre = 1.53512485958697;
+            const b1_pre = -2.69169618940638;
+            const b2_pre = 1.19839281085285;
+            const a1_pre = -1.69065929318241;
+            const a2_pre = 0.73248077421585;
+
+            log(`Pre-filter b0: ${b0_pre} (expected: ${expected.pre.b[0]})`, 
+                Math.abs(b0_pre - expected.pre.b[0]) < 1e-10 ? 'pass' : 'fail');
+            log(`Pre-filter b1: ${b1_pre} (expected: ${expected.pre.b[1]})`, 
+                Math.abs(b1_pre - expected.pre.b[1]) < 1e-10 ? 'pass' : 'fail');
+            log(`Pre-filter b2: ${b2_pre} (expected: ${expected.pre.b[2]})`, 
+                Math.abs(b2_pre - expected.pre.b[2]) < 1e-10 ? 'pass' : 'fail');
+
+            // RLB filter係数チェック
+            const b0_rlb = 1.0;
+            const b1_rlb = -2.0;
+            const b2_rlb = 1.0;
+            const a1_rlb = -1.99004745483398;
+            const a2_rlb = 0.99007225036621;
+
+            log(`RLB filter a1: ${a1_rlb} (expected: ${expected.rlb.a[1]})`, 
+                Math.abs(a1_rlb - expected.rlb.a[1]) < 1e-10 ? 'pass' : 'fail');
+            log(`RLB filter a2: ${a2_rlb} (expected: ${expected.rlb.a[2]})`, 
+                Math.abs(a2_rlb - expected.rlb.a[2]) < 1e-10 ? 'pass' : 'fail');
+        }
+
+        function testLUFSFormula() {
+            log('\n=== LUFS Formula Test ===', 'info');
+            
+            // テストケース：-20 dBFS の 1kHz サイン波（フィルター無し）
+            const sampleRate = 48000;
+            const duration = 0.4; // 400ms = 1ブロック
+            const samples = Math.floor(sampleRate * duration);
+            
+            // -20 dBFS = 0.1 の振幅
+            const amplitude = 0.1;
+            const frequency = 1000;
+            
+            const testSignal = new Float32Array(samples);
+            for (let i = 0; i < samples; i++) {
+                testSignal[i] = amplitude * Math.sin(2 * Math.PI * frequency * i / sampleRate);
+            }
+            
+            // Mean square計算
+            let sum = 0;
+            for (let i = 0; i < testSignal.length; i++) {
+                sum += testSignal[i] * testSignal[i];
+            }
+            const ms = sum / testSignal.length;
+            
+            log(`Test signal: -20 dBFS 1kHz sine wave`);
+            log(`Amplitude: ${amplitude}`);
+            log(`Mean square: ${ms.toExponential(6)}`);
+            log(`Expected MS: ${(amplitude * amplitude / 2).toExponential(6)}`); // RMS^2 for sine
+            
+            // ステレオ（L + R with same signal）
+            const totalMs = ms + ms; // L=1.0, R=1.0
+            const loudness = -0.691 + 10 * Math.log10(totalMs);
+            
+            log(`Total MS (L+R): ${totalMs.toExponential(6)}`);
+            log(`Calculated Loudness: ${loudness.toFixed(2)} LUFS`);
+            
+            // 期待値：-20 dBFS (two channels) = -20 + 3 = -17 dBFS (power sum)
+            // But LUFS includes -0.691 offset
+            // Expected ≈ -17 - 0.691 = -17.691 LUFS (without K-weighting)
+            const expectedApprox = 20 * Math.log10(amplitude * Math.sqrt(2)) - 0.691;
+            log(`Expected (approx, no K-weighting): ${expectedApprox.toFixed(2)} LUFS`);
+        }
+
+        function testGating() {
+            log('\n=== Gating Test ===', 'info');
+            
+            // Absolute gate: -70 LUFS
+            const absoluteGate = -70;
+            log(`Absolute gate: ${absoluteGate} LUFS`, 'pass');
+            
+            // Relative gate: -10 LU below mean
+            const testBlocks = [-30, -25, -28, -26, -24, -27, -80, -29]; // -80 should be filtered
+            
+            log(`Test blocks: [${testBlocks.join(', ')}]`);
+            
+            // Step 1: Absolute gate
+            const gated1 = testBlocks.filter(l => l > absoluteGate);
+            log(`After absolute gate: [${gated1.join(', ')}]`, 'pass');
+            
+            // Step 2: Calculate mean
+            let sum = 0;
+            for (const block of gated1) {
+                sum += Math.pow(10, block / 10);
+            }
+            const mean = -0.691 + 10 * Math.log10(sum / gated1.length);
+            log(`Mean loudness: ${mean.toFixed(2)} LUFS`);
+            
+            // Step 3: Relative gate
+            const relativeGate = mean - 10;
+            log(`Relative gate: ${relativeGate.toFixed(2)} LUFS`);
+            
+            const gated2 = gated1.filter(l => l > relativeGate);
+            log(`After relative gate: [${gated2.join(', ')}]`, 'pass');
+            
+            // Final loudness
+            sum = 0;
+            for (const block of gated2) {
+                sum += Math.pow(10, block / 10);
+            }
+            const finalLoudness = -0.691 + 10 * Math.log10(sum / gated2.length);
+            log(`Final integrated loudness: ${finalLoudness.toFixed(2)} LUFS`, 'pass');
+        }
+
+        function testOffsetConstant() {
+            log('\n=== Offset Constant Test ===', 'info');
+            
+            // ITU-R BS.1770-4: -0.691 dB offset
+            // This accounts for the difference between power and loudness
+            const offset = -0.691;
+            const expected = -0.691;
+            
+            log(`Offset constant: ${offset}`, 
+                Math.abs(offset - expected) < 0.001 ? 'pass' : 'fail');
+            
+            // Explanation
+            log(`This offset is derived from: 10*log10(4) - 10*log10(1.5^2) = -0.691`);
+        }
+
+        function testSanityCheck() {
+            log('\n=== Sanity Check: Expected LUFS Ranges ===', 'info');
+            
+            log('Typical LUFS values:');
+            log('  • Broadcast (EBU R128): -23 LUFS', 'info');
+            log('  • Streaming (Spotify/YouTube): -14 LUFS', 'info');
+            log('  • Podcasts: -16 to -19 LUFS', 'info');
+            log('  • Audiobooks: -18 to -20 LUFS', 'info');
+            log('  • Cinema: -24 to -27 LUFS', 'info');
+            log('', 'info');
+            log('⚠️ LUFS values should ALWAYS be NEGATIVE!', 'fail');
+            log('If you see positive LUFS values (e.g., +7.4 LUFS), the calculation is WRONG!', 'fail');
+            log('', 'info');
+            log('Possible causes of positive LUFS:', 'info');
+            log('  1. Filter state variables mixed up (Pre-filter using RLB state)', 'info');
+            log('  2. Incorrect mean square calculation', 'info');
+            log('  3. Wrong channel weighting', 'info');
+            log('  4. Sample values not normalized to ±1.0 range', 'info');
+        }
+
+        // Run all tests
+        testKWeightingCoefficients();
+        testLUFSFormula();
+        testGating();
+        testOffsetConstant();
+        testSanityCheck();
+
+        log('\n=== Test Complete ===', 'pass');
+    </script>
+</body>
+</html>

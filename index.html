@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound Graffiti - Audio Loudness Meter</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="controls">
+                <h1>Sound Graffiti</h1>
+                <div class="input-select">
+                    <label for="input-source">Input:</label>
+                    <select id="input-source">
+                        <option value="microphone">Microphone</option>
+                        <option value="desktop">Desktop Audio</option>
+                    </select>
+                </div>
+                <button id="start-btn" class="btn-primary">▶ Start Monitoring</button>
+                <button id="stop-btn" class="btn-secondary" disabled>■ Stop</button>
+                <button id="reset-btn" class="btn-reset" disabled>↻ Reset</button>
+                <button id="settings-btn" class="settings-btn">⚙ Settings</button>
+                <button id="help-btn" class="help-btn-main">? Help</button>
+                <button id="theme-toggle" class="theme-toggle">
+                    <span class="theme-icon">🌙</span>
+                    <span class="theme-toggle-text">Dark</span>
+                </button>
+            </div>
+            <div class="view-controls">
+                <label>Display:</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="lufs" checked> LUFS</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="truepeak" checked> True Peak</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="vu" checked> VU Meter</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="spectrum" checked> Spectrum</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="stereofield" checked> Stereo Field</label>
+                <label><input type="checkbox" class="meter-toggle" data-meter="history" checked> History</label>
+            </div>
+        </header>
+
+        <main id="meters-container">
+            <!-- LUFS Meter -->
+            <div class="meter-panel" id="lufs-panel" data-meter="lufs">
+                <div class="panel-header">
+                    <h3>Integrated Loudness</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="lufs-canvas"></canvas>
+                    <div class="meter-values">
+                        <div class="value-item">
+                            <span class="label">Integrated:</span>
+                            <span class="value" id="lufs-integrated">-∞ LUFS</span>
+                        </div>
+                        <div class="value-item">
+                            <span class="label">Short-term:</span>
+                            <span class="value" id="lufs-shortterm">-∞ LUFS</span>
+                        </div>
+                        <div class="value-item">
+                            <span class="label">Momentary:</span>
+                            <span class="value" id="lufs-momentary">-∞ LUFS</span>
+                        </div>
+                        <div class="value-item">
+                            <span class="label">LRA:</span>
+                            <span class="value" id="lra-value">0.0 LU</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- True Peak Meter -->
+            <div class="meter-panel" id="truepeak-panel" data-meter="truepeak">
+                <div class="panel-header">
+                    <h3>True Peak</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="truepeak-canvas"></canvas>
+                    <div class="meter-values">
+                        <div class="value-item">
+                            <span class="label">Peak L:</span>
+                            <span class="value" id="peak-left">-∞ dBTP</span>
+                        </div>
+                        <div class="value-item">
+                            <span class="label">Peak R:</span>
+                            <span class="value" id="peak-right">-∞ dBTP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VU Meter -->
+            <div class="meter-panel" id="vu-panel" data-meter="vu">
+                <div class="panel-header">
+                    <h3>VU Meter</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="vu-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Spectrum Analyzer -->
+            <div class="meter-panel wide" id="spectrum-panel" data-meter="spectrum">
+                <div class="panel-header">
+                    <h3>Spectrum Analyzer</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="spectrum-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Stereo Field -->
+            <div class="meter-panel" id="stereofield-panel" data-meter="stereofield">
+                <div class="panel-header">
+                    <h3>Stereo Field</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="stereofield-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="meter-panel wide" id="history-panel" data-meter="history">
+                <div class="panel-header">
+                    <h3>Loudness History</h3>
+                </div>
+                <div class="panel-content">
+                    <canvas id="history-canvas"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="help-modal">
+        <div class="help-modal-content">
+            <button class="help-modal-close">×</button>
+            <h2 id="help-title"></h2>
+            <div id="help-body"></div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="settings-modal">
+        <div class="settings-modal-content">
+            <button class="settings-modal-close">×</button>
+            <h2>Settings</h2>
+            <div class="settings-body">
+                <div class="setting-group">
+                    <h3>Target LUFS Level</h3>
+                    <p class="setting-description">配信・放送プラットフォームに応じた基準値を選択してください</p>
+                    <div class="target-select-section">
+                        <label for="target-lufs">Preset:</label>
+                        <select id="target-lufs">
+                            <option value="-23">Broadcast (-23 LUFS)</option>
+                            <option value="-14">YouTube/Spotify (-14 LUFS)</option>
+                            <option value="-16">Apple Music (-16 LUFS)</option>
+                            <option value="-14">Twitch (-14 LUFS)</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                    </div>
+                    <div class="custom-lufs-section" style="display:none;">
+                        <label for="custom-lufs">Custom Value:</label>
+                        <input type="number" id="custom-lufs" class="custom-input" min="-60" max="0" step="0.1" value="-23">
+                        <span class="unit">LUFS</span>
+                    </div>
+                    <div class="platform-info">
+                        <h4>📋 プラットフォーム別推奨値:</h4>
+                        <ul>
+                            <li><strong>放送 (EBU R128)</strong>: -23 LUFS</li>
+                            <li><strong>YouTube</strong>: -14 LUFS</li>
+                            <li><strong>Spotify</strong>: -14 LUFS</li>
+                            <li><strong>Apple Music</strong>: -16 LUFS</li>
+                            <li><strong>Twitch</strong>: -14 LUFS</li>
+                            <li><strong>Amazon Music</strong>: -14 LUFS</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="setting-group">
+                    <h3>Spectrum FFT Size</h3>
+                    <p class="setting-description">FFTサイズを変更してスペクトラムの精度とパフォーマンスを調整</p>
+                    <div class="target-select-section">
+                        <label for="fft-size">FFT Size:</label>
+                        <select id="fft-size">
+                            <option value="2048">2048 (軽量、23Hz/bin)</option>
+                            <option value="4096" selected>4096 (バランス、12Hz/bin)</option>
+                            <option value="8192">8192 (高精度、6Hz/bin)</option>
+                            <option value="16384">16384 (最高精度、3Hz/bin、重い)</option>
+                        </select>
+                    </div>
+                    <div class="platform-info">
+                        <h4>ℹ️ FFTサイズについて:</h4>
+                        <ul>
+                            <li><strong>2048</strong>: 軽量、全周波数帯で分解能が粗い</li>
+                            <li><strong>4096</strong>: 推奨、パフォーマンスと精度のバランス</li>
+                            <li><strong>8192</strong>: 全周波数帯で高精度、特に低域で効果大</li>
+                            <li><strong>16384</strong>: 最高精度だが処理負荷が高い</li>
+                            <li>※値が大きいほど低域（20-200Hz）の細かい変化を正確に捉えられます</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/meters/lufs-meter.js"></script>
+    <script src="js/meters/truepeak-meter.js"></script>
+    <script src="js/meters/vu-meter.js"></script>
+    <script src="js/meters/spectrum-analyzer.js"></script>
+    <script src="js/meters/stereo-field.js"></script>
+    <script src="js/meters/history.js"></script>
+    <script src="js/ui/layout-manager.js"></script>
+    <script src="js/audio-engine.js"></script>
+    <script src="js/app.js"></script>
+    
+    <!-- Debug Tool (remove in production) -->
+    <!-- <script src="js/debug-lufs.js"></script> -->
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JM7L5X0H09"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-JM7L5X0H09');
+    </script>
+</body>
+</html>

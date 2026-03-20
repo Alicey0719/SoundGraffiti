@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>VU Meter Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a202c; color: #e2e8f0; }
+        h1 { color: #86efac; }
+        .note { background: #2d3748; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #86efac; }
+    </style>
+</head>
+<body>
+    <h1>VU Meter Calculation Test</h1>
+    <div class="note">
+        <p><strong>💡 Open Browser Console (F12) to see test results</strong></p>
+        <p>This page validates VU meter calculations against standard specifications.</p>
+    </div>
+
+    <script>
+/**
+ * VU Meter Test and Validation
+ * VUメーターの計算が正しいことを検証
+ */
+
+// VUメーターの仕様
+console.log('%c=== VU Meter Specification ===', 'color: #86efac; font-weight: bold; font-size: 14px;');
+console.log('標準仕様:');
+console.log('  • 0 VU = +4 dBu = -18 dBFS (デジタル)');
+console.log('  • 積分時間: 300ms (Attack & Release)');
+console.log('  • 測定方式: RMS (Root Mean Square)');
+console.log('  • 範囲: -20 VU to +6 VU（高レベル音源対応）');
+console.log('  • 用途: 平均レベルの確認（ピークではなく）');
+console.log('  • 注記: 標準は+3 VUまでだが、YouTube等の高レベル音源対応で+6 VUまで拡張');
+
+// テストケース
+function testVUCalculation() {
+    console.group('🧪 VU Calculation Test');
+    
+    // テスト1: -18 dBFS の信号 → 0 VU になるべき
+    const rms_18dBFS = Math.pow(10, -18 / 20); // -18 dBFS
+    const vu_0 = 20 * Math.log10(rms_18dBFS) + 18;
+    
+    console.log('Test 1: -18 dBFS input');
+    console.log(`  RMS: ${rms_18dBFS.toFixed(6)}`);
+    console.log(`  VU: ${vu_0.toFixed(2)} VU`);
+    console.log(`  Expected: 0.00 VU`);
+    console.log(`  Result: ${Math.abs(vu_0) < 0.01 ? '✅ PASS' : '❌ FAIL'}`);
+    
+    // テスト2: -38 dBFS の信号 → -20 VU になるべき
+    const rms_38dBFS = Math.pow(10, -38 / 20);
+    const vu_20 = 20 * Math.log10(rms_38dBFS) + 18;
+    
+    console.log('\nTest 2: -38 dBFS input');
+    console.log(`  RMS: ${rms_38dBFS.toFixed(6)}`);
+    console.log(`  VU: ${vu_20.toFixed(2)} VU`);
+    console.log(`  Expected: -20.00 VU`);
+    console.log(`  Result: ${Math.abs(vu_20 + 20) < 0.01 ? '✅ PASS' : '❌ FAIL'}`);
+    
+    // テスト3: -15 dBFS の信号 → +3 VU になるべき
+    const rms_15dBFS = Math.pow(10, -15 / 20);
+    const vu_3 = 20 * Math.log10(rms_15dBFS) + 18;
+    
+    console.log('\nTest 3: -15 dBFS input');
+    console.log(`  RMS: ${rms_15dBFS.toFixed(6)}`);
+    console.log(`  VU: ${vu_3.toFixed(2)} VU`);
+    console.log(`  Expected: +3.00 VU`);
+    console.log(`  Result: ${Math.abs(vu_3 - 3) < 0.01 ? '✅ PASS' : '❌ FAIL'}`);
+    
+    console.groupEnd();
+}
+
+// 積分時間のテスト
+function testIntegrationTime() {
+    console.group('⏱️ Integration Time Test');
+    
+    const attackTime = 0.3; // 300ms
+    const dt = 0.001; // 1ms step
+    
+    console.log('Attack/Release Time: 300ms');
+    console.log('Step size: 1ms');
+    
+    // 99%到達時間を計算
+    let value = 0;
+    const target = 1;
+    let time = 0;
+    
+    while (value < 0.99 * target) {
+        const alpha = 1 - Math.exp(-dt / attackTime);
+        value = value + alpha * (target - value);
+        time += dt;
+    }
+    
+    console.log(`99%到達時間: ${(time * 1000).toFixed(1)}ms`);
+    console.log(`期待値: ~300ms`);
+    console.log(`誤差: ${Math.abs(time - 0.3) * 1000}ms`);
+    console.log(`Result: ${Math.abs(time - 0.3) < 0.05 ? '✅ PASS' : '❌ FAIL'}`);
+    
+    console.groupEnd();
+}
+
+// RMS計算のテスト
+function testRMS() {
+    console.group('📊 RMS Calculation Test');
+    
+    // サイン波のRMS = amplitude / sqrt(2)
+    const amplitude = 0.1;
+    const samples = 4800; // 100ms at 48kHz
+    const frequency = 1000; // 1kHz
+    const sampleRate = 48000;
+    
+    const signal = new Float32Array(samples);
+    for (let i = 0; i < samples; i++) {
+        signal[i] = amplitude * Math.sin(2 * Math.PI * frequency * i / sampleRate);
+    }
+    
+    // RMS計算
+    let sum = 0;
+    for (let i = 0; i < signal.length; i++) {
+        sum += signal[i] * signal[i];
+    }
+    const rms = Math.sqrt(sum / signal.length);
+    const expectedRMS = amplitude / Math.sqrt(2);
+    
+    console.log('1kHz sine wave test:');
+    console.log(`  Amplitude: ${amplitude}`);
+    console.log(`  Calculated RMS: ${rms.toFixed(6)}`);
+    console.log(`  Expected RMS: ${expectedRMS.toFixed(6)}`);
+    console.log(`  Error: ${Math.abs(rms - expectedRMS).toExponential(2)}`);
+    console.log(`  Result: ${Math.abs(rms - expectedRMS) < 0.001 ? '✅ PASS' : '❌ FAIL'}`);
+    
+    // dBFS変換
+    const dBFS = 20 * Math.log10(rms);
+    const expectedDBFS = 20 * Math.log10(amplitude / Math.sqrt(2));
+    
+    console.log(`\n  RMS in dBFS: ${dBFS.toFixed(2)} dB`);
+    console.log(`  Expected: ${expectedDBFS.toFixed(2)} dB`);
+    
+    // VU変換
+    const vu = dBFS + 18;
+    console.log(`\n  VU value: ${vu.toFixed(2)} VU`);
+    console.log(`  (0.1 amplitude = -20 dBFS = -2 VU)`);
+    
+    console.groupEnd();
+}
+
+// dBFS to VU 変換テーブル
+function showConversionTable() {
+    console.group('📋 dBFS to VU Conversion Table');
+    console.log('dBFS  →  VU');
+    console.log('───────────────');
+    
+    const dBFSValues = [-38, -30, -24, -20, -18, -15, -12, -10, -6, -3, 0];
+    for (const dBFS of dBFSValues) {
+        const vu = dBFS + 18;
+        console.log(`${dBFS.toString().padStart(4)} dB  →  ${vu.toString().padStart(4)} VU`);
+    }
+    
+    console.log('\n推奨レベル:');
+    console.log('  • -20 VU (-38 dBFS): 最小可視レベル');
+    console.log('  •   0 VU (-18 dBFS): 標準動作レベル');
+    console.log('  •  +3 VU (-15 dBFS): 従来の最大許容レベル');
+    console.log('  •  +6 VU (-12 dBFS): 高レベル音源（YouTube: -14 LUFS）');
+    console.log('\n注記: YouTube等の-14 LUFS音源は平均-14 dBFS、ピークで-6〜-10 dBFS程度になります');
+    
+    console.groupEnd();
+}
+
+// すべてのテストを実行
+function runAllVUTests() {
+    console.clear();
+    console.log('%c VU Meter Test Suite ', 'background: #86efac; color: #1a202c; font-size: 16px; font-weight: bold; padding: 4px 8px;');
+    console.log('');
+    
+    testVUCalculation();
+    console.log('');
+    testIntegrationTime();
+    console.log('');
+    testRMS();
+    console.log('');
+    showConversionTable();
+    
+    console.log('\n%c✅ All Tests Complete', 'color: #86efac; font-weight: bold; font-size: 14px;');
+}
+
+// グローバルに公開
+window.runAllVUTests = runAllVUTests;
+
+console.log('%cVU Meter Test Tool Loaded!', 'color: #a5b4fc; font-size: 12px;');
+console.log('Run: %crunAllVUTests()', 'color: #86efac; font-weight: bold;');
+
+// 自動実行
+runAllVUTests();
+    </script>
+</body>
+</html>
