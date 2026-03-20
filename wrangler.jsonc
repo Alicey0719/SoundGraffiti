@@ -2,7 +2,7 @@
     "name": "sound-graffiti",
     "compatibility_date": "2026-03-21",
     "assets": {
-        "directory": "/",
+        "directory": ".",
         "not_found_handling": "single-page-application"
     },
     "observability": {
