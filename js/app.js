@@ -34,8 +34,25 @@ class SoundGraffiti {
             themeToggle: document.getElementById('theme-toggle'),
             targetLufs: document.getElementById('target-lufs'),
             customLufs: document.getElementById('custom-lufs'),
-            fftSize: document.getElementById('fft-size')
+            fftSize: document.getElementById('fft-size'),
+            selectFileBtn: document.getElementById('select-file-btn'),
+            audioFileInput: document.getElementById('audio-file-input'),
+            fileModal: document.getElementById('file-modal'),
+            fileDropZone: document.getElementById('file-drop-zone'),
+            fileInfoDisplay: document.getElementById('file-info-display'),
+            fileNameDisplay: document.getElementById('file-name-display'),
+            fileSizeDisplay: document.getElementById('file-size-display'),
+            fileRemoveBtn: document.getElementById('file-remove-btn'),
+            fileConfirmBtn: document.getElementById('file-confirm-btn'),
+            playbackControls: document.getElementById('playback-controls'),
+            playPauseBtn: document.getElementById('play-pause-btn'),
+            playbackPosition: document.getElementById('playback-position'),
+            playbackTime: document.getElementById('playback-time')
         };
+        
+        this.selectedFile = null;
+        this.fileMode = 'realtime';
+        this.isSeeking = false; // シークバー操作中フラグ
 
         // ダークモードの初期化
         this.initTheme();
@@ -140,6 +157,105 @@ class SoundGraffiti {
         // FFTサイズ変更
         this.elements.fftSize.addEventListener('change', () => {
             this.updateFftSize();
+        });
+        
+        // 入力ソース変更
+        this.elements.inputSource.addEventListener('change', (e) => {
+            this.onInputSourceChange(e.target.value);
+        });
+        
+        // ファイル選択ボタン
+        this.elements.selectFileBtn.addEventListener('click', () => {
+            this.openFileModal();
+        });
+        
+        // ファイルモーダルを閉じる
+        document.querySelector('.file-modal-close').addEventListener('click', () => {
+            this.closeFileModal();
+        });
+        this.elements.fileModal.addEventListener('click', (e) => {
+            if (e.target === this.elements.fileModal) {
+                this.closeFileModal();
+            }
+        });
+        
+        // ファイルドロップゾーン
+        this.elements.fileDropZone.addEventListener('click', (e) => {
+            // input 要素自体のクリックイベントと重複しないようにする
+            if (e.target !== this.elements.audioFileInput) {
+                this.elements.audioFileInput.click();
+            }
+        });
+        
+        this.elements.fileDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.elements.fileDropZone.classList.add('drag-over');
+        });
+        
+        this.elements.fileDropZone.addEventListener('dragleave', () => {
+            this.elements.fileDropZone.classList.remove('drag-over');
+        });
+        
+        this.elements.fileDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.elements.fileDropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.onFileSelected(files[0]);
+            }
+        });
+        
+        // 音声ファイル選択
+        this.elements.audioFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.onFileSelected(e.target.files[0]);
+            }
+        });
+        
+        // ファイル削除ボタン
+        this.elements.fileRemoveBtn.addEventListener('click', () => {
+            this.clearFileSelection();
+        });
+        
+        // ファイルモード選択
+        document.querySelectorAll('input[name="file-mode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.fileMode = e.target.value;
+            });
+        });
+        
+        // ファイル確認ボタン
+        this.elements.fileConfirmBtn.addEventListener('click', () => {
+            this.closeFileModal();
+            this.startMonitoring();
+        });
+        
+        // 再生コントロール
+        this.elements.playPauseBtn.addEventListener('click', () => {
+            this.togglePlayback();
+        });
+        
+        // シークバー：ドラッグ開始時
+        this.elements.playbackPosition.addEventListener('mousedown', () => {
+            this.isSeeking = true;
+        });
+        
+        this.elements.playbackPosition.addEventListener('touchstart', () => {
+            this.isSeeking = true;
+        });
+        
+        // シークバー：ドラッグ中は時刻表示のみ更新
+        this.elements.playbackPosition.addEventListener('input', (e) => {
+            const time = parseFloat(e.target.value);
+            if (this.audioEngine) {
+                this.updatePlaybackTime(time, this.audioEngine.getDuration());
+            }
+        });
+        
+        // シークバー：ドラッグ終了時に実際のシークを実行
+        this.elements.playbackPosition.addEventListener('change', (e) => {
+            this.seekPlayback(e.target.value);
+            this.isSeeking = false;
         });
     }
 
@@ -268,19 +384,63 @@ class SoundGraffiti {
             const inputType = this.elements.inputSource.value;
             const fftSize = this.getFftSize();
             
+            // ファイル入力の場合はファイルが選択されているか確認
+            if (inputType === 'file' && !this.selectedFile) {
+                alert('音声ファイルを選択してください。');
+                return;
+            }
+            
             // Audio Engineの初期化（既存のインスタンスがある場合は停止して再作成）
             if (this.audioEngine) {
                 this.audioEngine.stop();
             }
             this.audioEngine = new AudioEngine({ fftSize: fftSize });
 
-            // オーディオ入力の開始
-            await this.audioEngine.start(inputType);
-
-            // メーターへのデータストリーム設定
+            // ファイル入力の場合はファイルデータを読み込み
+            let fileData = null;
+            if (inputType === 'file') {
+                fileData = await this.readFileAsArrayBuffer(this.selectedFile);
+            }
+            
+            // メーターへのデータストリーム設定（オーディオ入力前に設定）
             this.audioEngine.onAudioData = (data) => {
                 this.updateMeters(data);
             };
+            
+            // ファイル再生の場合のコールバック設定（オーディオ入力前に設定）
+            if (inputType === 'file') {
+                if (this.fileMode === 'realtime') {
+                    this.audioEngine.onPlaybackUpdate = (data) => {
+                        this.updatePlaybackUI(data);
+                    };
+                    this.audioEngine.onPlaybackEnded = () => {
+                        this.updatePlayPauseButton();
+                    };
+                } else {
+                    // オフライン解析
+                    this.audioEngine.onOfflineComplete = (data) => {
+                        this.onOfflineAnalysisComplete(data);
+                    };
+                }
+            }
+
+            // オーディオ入力の開始
+            await this.audioEngine.start(inputType, fileData, this.fileMode);
+            
+            // ファイルのリアルタイム再生の場合のみ、UI設定と自動再生
+            if (inputType === 'file' && this.fileMode === 'realtime') {
+                // 再生コントロールを表示
+                this.elements.playbackControls.style.display = 'flex';
+                this.elements.playPauseBtn.disabled = false;
+                this.elements.playbackPosition.disabled = false;
+                this.elements.playbackPosition.max = this.audioEngine.getDuration();
+                
+                // 自動的に再生開始
+                setTimeout(() => {
+                    this.audioEngine.playFile();
+                    this.updatePlayPauseButton();
+                }, 100);
+            }
 
             // UI更新
             this.elements.startBtn.disabled = true;
@@ -292,7 +452,7 @@ class SoundGraffiti {
             console.log('Monitoring started');
         } catch (error) {
             console.error('Failed to start monitoring:', error);
-            alert('マイクまたはオーディオ入力へのアクセスに失敗しました: ' + error.message);
+            alert('オーディオ入力の初期化に失敗しました: ' + error.message);
         }
     }
 
@@ -307,6 +467,11 @@ class SoundGraffiti {
         this.elements.stopBtn.disabled = true;
         this.elements.resetBtn.disabled = false; // Stop後もResetは使える
         this.elements.inputSource.disabled = false;
+        this.elements.playbackControls.style.display = 'none';
+        this.elements.playPauseBtn.disabled = true;
+        this.elements.playbackPosition.disabled = true;
+        this.elements.playPauseBtn.textContent = '▶ Play'; // リセット
+        this.isSeeking = false; // シークフラグをリセット
         this.isMonitoring = false;
 
         console.log('Monitoring stopped');
@@ -502,6 +667,127 @@ class SoundGraffiti {
     showSettings() {
         const settingsModal = document.getElementById('settings-modal');
         settingsModal.classList.add('active');
+    }
+    
+    // ファイル入力関連のメソッド
+    onInputSourceChange(inputType) {
+        if (inputType === 'file') {
+            this.elements.selectFileBtn.style.display = 'inline-block';
+        } else {
+            this.elements.selectFileBtn.style.display = 'none';
+            this.elements.playbackControls.style.display = 'none';
+        }
+    }
+    
+    openFileModal() {
+        this.elements.fileModal.classList.add('active');
+    }
+    
+    closeFileModal() {
+        this.elements.fileModal.classList.remove('active');
+    }
+    
+    onFileSelected(file) {
+        if (!file) return;
+        
+        // 音声ファイルかチェック
+        if (!file.type.startsWith('audio/')) {
+            alert('音声ファイルを選択してください。');
+            return;
+        }
+        
+        this.selectedFile = file;
+        const fileSize = (file.size / 1024 / 1024).toFixed(2);
+        
+        // ファイル情報を表示
+        this.elements.fileNameDisplay.textContent = file.name;
+        this.elements.fileSizeDisplay.textContent = `${fileSize} MB`;
+        this.elements.fileDropZone.style.display = 'none';
+        this.elements.fileInfoDisplay.style.display = 'flex';
+        this.elements.fileConfirmBtn.disabled = false;
+    }
+    
+    clearFileSelection() {
+        this.selectedFile = null;
+        this.elements.audioFileInput.value = '';
+        this.elements.fileDropZone.style.display = 'flex';
+        this.elements.fileInfoDisplay.style.display = 'none';
+        this.elements.fileConfirmBtn.disabled = true;
+    }
+    
+    async readFileAsArrayBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+    
+    togglePlayback() {
+        if (!this.audioEngine) return;
+        
+        if (this.audioEngine.isPlaying) {
+            this.audioEngine.pauseFile();
+        } else {
+            this.audioEngine.playFile();
+        }
+        
+        // 状態が変わったらUIを更新
+        this.updatePlayPauseButton();
+    }
+    
+    seekPlayback(value) {
+        if (!this.audioEngine) return;
+        
+        const time = parseFloat(value);
+        
+        // seekFile()を実行（同期的に完了する）
+        this.audioEngine.seekFile(time);
+        
+        // 時刻表示を更新
+        this.updatePlaybackTime(time, this.audioEngine.getDuration());
+        
+        // seekFile()完了後の状態でUIを即座に更新
+        this.updatePlayPauseButton();
+    }
+    
+    updatePlayPauseButton() {
+        if (!this.audioEngine) return;
+        
+        const newText = this.audioEngine.isPlaying ? '⏸ Pause' : '▶ Play';
+        this.elements.playPauseBtn.textContent = newText;
+    }
+    
+    updatePlaybackUI(data) {
+        // シークバー操作中は自動更新をスキップ（ユーザー操作を優先）
+        if (!this.isSeeking) {
+            this.elements.playbackPosition.value = data.currentTime;
+        }
+        this.updatePlaybackTime(data.currentTime, data.duration);
+    }
+    
+    updatePlaybackTime(currentTime, duration) {
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+        
+        this.elements.playbackTime.textContent = 
+            `${formatTime(currentTime)} / ${formatTime(duration)}`;
+    }
+    
+    onOfflineAnalysisComplete(data) {
+        const speedup = (data.duration / (data.analysisTime / 1000)).toFixed(1);
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+        const duration = formatTime(data.duration);
+        const analysisTime = (data.analysisTime / 1000).toFixed(1);
+        alert(`Offline analysis complete\nAudio: ${duration} → Analyzed in ${analysisTime}s (x${speedup} faster)`);
     }
 }
 

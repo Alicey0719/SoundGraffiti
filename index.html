@@ -40,11 +40,18 @@
                     <select id="input-source">
                         <option value="microphone">Microphone</option>
                         <option value="desktop">Desktop Audio</option>
+                        <option value="file">Audio File</option>
                     </select>
                 </div>
+                <button id="select-file-btn" class="btn-file-select" style="display: none;">📁 Select File</button>
                 <button id="start-btn" class="btn-primary">▶ Start Monitoring</button>
                 <button id="stop-btn" class="btn-secondary" disabled>■ Stop</button>
                 <button id="reset-btn" class="btn-reset" disabled>↻ Reset</button>
+                <div class="playback-controls" id="playback-controls" style="display: none;">
+                    <button id="play-pause-btn" class="btn-playback" disabled>▶ Play</button>
+                    <input type="range" id="playback-position" class="playback-slider" min="0" max="100" value="0" disabled />
+                    <span id="playback-time" class="playback-time">0:00 / 0:00</span>
+                </div>
                 <button id="settings-btn" class="settings-btn">⚙ Settings</button>
                 <button id="help-btn" class="help-btn-main">? Help</button>
                 <button id="theme-toggle" class="theme-toggle">
@@ -181,6 +188,51 @@
             <button class="help-modal-close">×</button>
             <h2 id="help-title"></h2>
             <div id="help-body"></div>
+        </div>
+    </div>
+
+    <!-- File Selection Modal -->
+    <div id="file-modal" class="file-modal">
+        <div class="file-modal-content">
+            <button class="file-modal-close">×</button>
+            <h2>Audio File Selection</h2>
+            <div class="file-modal-body">
+                <div class="file-drop-zone" id="file-drop-zone">
+                    <div class="drop-zone-icon">📁</div>
+                    <p>Click to select or drag & drop audio file</p>
+                    <input type="file" id="audio-file-input" accept="audio/*" />
+                </div>
+                <div class="file-info-display" id="file-info-display" style="display: none;">
+                    <div class="file-icon">🎵</div>
+                    <div class="file-details">
+                        <div class="file-name" id="file-name-display"></div>
+                        <div class="file-size" id="file-size-display"></div>
+                    </div>
+                    <button class="file-remove-btn" id="file-remove-btn">×</button>
+                </div>
+                <div class="file-mode-section">
+                    <h3>Analysis Mode</h3>
+                    <div class="file-mode-options">
+                        <label class="mode-option">
+                            <input type="radio" name="file-mode" value="realtime" checked>
+                            <div class="mode-card">
+                                <div class="mode-icon">▶️</div>
+                                <div class="mode-title">Realtime Analysis</div>
+                                <div class="mode-desc">Play audio with live meter monitoring</div>
+                            </div>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="file-mode" value="offline">
+                            <div class="mode-card">
+                                <div class="mode-icon">⚡</div>
+                                <div class="mode-title">Fast Offline Analysis</div>
+                                <div class="mode-desc">Process entire file at high speed</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <button id="file-confirm-btn" class="btn-file-confirm" disabled>Start Analysis</button>
+            </div>
         </div>
     </div>
 
